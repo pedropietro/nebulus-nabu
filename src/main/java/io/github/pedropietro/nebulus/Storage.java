@@ -1,0 +1,176 @@
+package io.github.pedropietro.nebulus;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.UUID;
+import java.util.logging.Logger;
+
+/**
+ * The Nebulus file system layout:
+ *
+ * <pre>
+ * &lt;path&gt;/src/&lt;sha256&gt;      content-addressed copies of buffers and downloads
+ * &lt;path&gt;/ipfs/&lt;cid&gt;        symbolic link to the file holding that CID's content
+ * &lt;path&gt;/ipfs/&lt;cid&gt;/&lt;name&gt; for folders: links to ../&lt;child cid&gt;
+ * &lt;path&gt;/repo/            IPFS node state (blocks, identity)
+ * </pre>
+ */
+final class Storage {
+
+    private static final Logger LOG = Logger.getLogger(Storage.class.getName());
+
+    private final Path root;
+    private final Path src;
+    private final Path ipfs;
+
+    Storage(Path root) throws IOException {
+        this.root = root;
+        this.src = root.resolve("src");
+        this.ipfs = root.resolve("ipfs");
+        Files.createDirectories(src);
+        Files.createDirectories(ipfs);
+    }
+
+    Path root() {
+        return root;
+    }
+
+    Path srcDir() {
+        return src;
+    }
+
+    Path ipfsDir() {
+        return ipfs;
+    }
+
+    Path repoDir() {
+        return root.resolve("repo");
+    }
+
+    /**
+     * Resolves {@code <cid>}, {@code /ipfs/<cid>} or {@code <cid>/<name>} inside the ipfs folder,
+     * refusing anything that would escape it.
+     */
+    Path resolve(String cidPath) {
+        String p = cidPath.startsWith("/ipfs/") ? cidPath.substring("/ipfs/".length()) : cidPath;
+        if (p.isEmpty()) {
+            throw new IllegalArgumentException("Empty CID");
+        }
+        Path resolved = ipfs.resolve(p).normalize();
+        if (!resolved.startsWith(ipfs.normalize()) || resolved.equals(ipfs.normalize())) {
+            throw new IllegalArgumentException("Invalid CID path: " + cidPath);
+        }
+        return resolved;
+    }
+
+    /** Writes {@code content} to {@code src/<sha256>} (no-op if it is already there). */
+    Path storeBytes(byte[] content) throws IOException {
+        Path target = src.resolve(sha256Hex(content));
+        if (!Files.exists(target)) {
+            Path tmp = src.resolve(UUID.randomUUID().toString());
+            Files.write(tmp, content);
+            moveInto(tmp, target);
+        }
+        return target;
+    }
+
+    /** Copies a stream into {@code src/<sha256>}, aborting when more than {@code maxBytes} arrive. */
+    Path storeStream(InputStream in, long maxBytes) throws IOException {
+        return storeWith(out -> {
+            byte[] buffer = new byte[64 * 1024];
+            long total = 0;
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                total += n;
+                if (maxBytes > 0 && total > maxBytes) {
+                    throw new FileTooLargeException(total, maxBytes);
+                }
+                out.write(buffer, 0, n);
+            }
+        });
+    }
+
+    /**
+     * Lets {@code writer} fill a temporary file (named by a random UUID, as in Nebulus) and then
+     * renames it to its sha256, so equal content is stored once.
+     */
+    Path storeWith(IOConsumer<OutputStream> writer) throws IOException {
+        Path tmp = src.resolve(UUID.randomUUID().toString());
+        MessageDigest digest = sha256();
+        try (OutputStream file = Files.newOutputStream(tmp);
+             DigestOutputStream out = new DigestOutputStream(file, digest)) {
+            writer.accept(out);
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(tmp);
+            throw e;
+        }
+        Path target = src.resolve(HexFormat.of().formatHex(digest.digest()));
+        moveInto(tmp, target);
+        return target;
+    }
+
+    private static void moveInto(Path tmp, Path target) throws IOException {
+        if (Files.exists(target)) {
+            Files.delete(tmp);
+            return;
+        }
+        try {
+            Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (FileAlreadyExistsException e) {
+            Files.deleteIfExists(tmp);
+        }
+    }
+
+    /**
+     * Creates {@code linkPath} as a relative symbolic link to {@code target}. An existing,
+     * working link is left alone (CIDs are immutable). Where symbolic links are not available
+     * (e.g. Windows without developer mode) the file is copied instead.
+     */
+    void link(Path linkPath, Path target) throws IOException {
+        if (Files.exists(linkPath)) {
+            return;
+        }
+        if (Files.isSymbolicLink(linkPath)) {
+            Files.delete(linkPath); // dangling link: its target was removed
+        }
+        Files.createDirectories(linkPath.getParent());
+        Path relative = linkPath.getParent().toAbsolutePath().normalize()
+                .relativize(target.toAbsolutePath().normalize());
+        LOG.fine(() -> "create symlink " + linkPath + " -> " + relative);
+        try {
+            Files.createSymbolicLink(linkPath, relative);
+        } catch (FileAlreadyExistsException e) {
+            // created concurrently: same CID, same content
+        } catch (UnsupportedOperationException | FileSystemException e) {
+            LOG.warning("Symbolic links unavailable (" + e.getMessage() + "), copying " + target);
+            Files.copy(target, linkPath, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    static String sha256Hex(byte[] data) {
+        return HexFormat.of().formatHex(sha256().digest(data));
+    }
+
+    private static MessageDigest sha256() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @FunctionalInterface
+    interface IOConsumer<T> {
+        void accept(T value) throws IOException;
+    }
+}

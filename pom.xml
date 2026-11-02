@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.pedropietro</groupId>
+    <artifactId>nebulus-nabu</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>nebulus-nabu</name>
+    <description>Virtual IPFS: a Java port of Nebulus on top of the Nabu IPFS implementation</description>
+    <url>https://github.com/pedropietro/nebulus-nabu</url>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <!-- Nabu from https://github.com/pedropietro/nabu, built by JitPack at this commit -->
+        <nabu.groupId>com.github.pedropietro</nabu.groupId>
+        <nabu.version>565204cd36</nabu.version>
+        <junit.version>4.13.2</junit.version>
+    </properties>
+
+    <repositories>
+        <!-- Nabu and its libp2p dependencies are distributed through JitPack -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>consensys</id>
+            <url>https://artifacts.consensys.net/public/maven/maven/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>${nabu.groupId}</groupId>
+            <artifactId>nabu</artifactId>
+            <version>${nabu.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <!--
+          Use a Nabu built from source and installed in the local Maven repository:
+            git clone https://github.com/pedropietro/nabu && mvn -f nabu/pom.xml install -DskipTests
+            mvn -Pnabu-local verify
+        -->
+        <profile>
+            <id>nabu-local</id>
+            <properties>
+                <nabu.groupId>com.github.peergos</nabu.groupId>
+                <nabu.version>v0.9.1</nabu.version>
+            </properties>
+        </profile>
+    </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:all,-processing,-classfile</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <trimStackTrace>false</trimStackTrace>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
