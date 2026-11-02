@@ -6,6 +6,8 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,8 +29,20 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-/** The offline API: add, download, folder, get, stream. Port of the "writing" tests of Nebulus. */
+/**
+ * The offline API: add, download, folder, get, stream. Port of the "writing" tests of Nebulus.
+ * Runs twice: with symbolic links (copies where the OS refuses them) and with copies only.
+ */
+@RunWith(Parameterized.class)
 public class NebulusTest {
+
+    @Parameterized.Parameters(name = "symbolicLinks={0}")
+    public static List<Object[]> modes() {
+        return List.of(new Object[]{true}, new Object[]{false});
+    }
+
+    @Parameterized.Parameter
+    public boolean symbolicLinks;
 
     private static HttpServer web;
     private static String base;
@@ -72,7 +86,7 @@ public class NebulusTest {
     @Before
     public void setUp() throws IOException {
         store = Files.createTempDirectory("nebulus-test");
-        nebulus = new Nebulus(NebulusOptions.builder().path(store).build());
+        nebulus = new Nebulus(NebulusOptions.builder().path(store).symbolicLinks(symbolicLinks).build());
     }
 
     @After
@@ -93,11 +107,13 @@ public class NebulusTest {
         String cid = nebulus.add("hello world".getBytes(StandardCharsets.UTF_8));
         assertEquals(TestData.HELLO_WORLD, cid);
         Path link = store.resolve("ipfs").resolve(cid);
-        assertTrue(Files.isSymbolicLink(link));
+        TestData.assertStoredEntry(nebulus, link);
         // the buffer is stored once, under its sha256
-        Path target = link.getParent().resolve(Files.readSymbolicLink(link)).normalize();
-        assertEquals(store.resolve("src").resolve(
-                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9").normalize(), target);
+        Path stored = store.resolve("src").resolve("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
+        assertTrue(Files.isRegularFile(stored));
+        if (nebulus.usesSymbolicLinks()) {
+            assertEquals(stored.normalize(), link.getParent().resolve(Files.readSymbolicLink(link)).normalize());
+        }
         assertEquals("hello world", nebulus.get(cid, StandardCharsets.UTF_8));
         assertEquals(cid, nebulus.add("hello world".getBytes(StandardCharsets.UTF_8)));
     }
@@ -110,8 +126,10 @@ public class NebulusTest {
         assertEquals(TestData.HELLO_WORLD, cid);
         assertEquals(cid, nebulus.add(file.toString()));
         Path link = store.resolve("ipfs").resolve(cid);
-        assertTrue(Files.isSymbolicLink(link));
-        assertFalse(Files.readSymbolicLink(link).isAbsolute());
+        TestData.assertStoredEntry(nebulus, link);
+        if (nebulus.usesSymbolicLinks()) {
+            assertFalse("same drive: link must be relative", Files.readSymbolicLink(link).isAbsolute());
+        }
     }
 
     @Test
@@ -120,7 +138,8 @@ public class NebulusTest {
         Files.writeString(first, "hello world");
         nebulus.add(first);
         Files.delete(first);
-        assertFalse(nebulus.has(TestData.HELLO_WORLD));
+        // a link breaks with its target; a copy keeps the content
+        assertEquals(!nebulus.usesSymbolicLinks(), nebulus.has(TestData.HELLO_WORLD));
         Path second = store.resolve("second.txt");
         Files.writeString(second, "hello world");
         nebulus.add(second);
@@ -178,7 +197,7 @@ public class NebulusTest {
         assertEquals(TestData.APERANK, cid);
         assertEquals(List.of("aperank.png", "index.js", "package.json", "readme.md"), nebulus.list(cid));
         assertArrayEquals(Files.readAllBytes(TestData.fixture("aperank/readme.md")), nebulus.get(cid + "/readme.md"));
-        assertTrue(Files.isSymbolicLink(store.resolve("ipfs").resolve(cid).resolve("index.js")));
+        TestData.assertStoredEntry(nebulus, store.resolve("ipfs").resolve(cid).resolve("index.js"));
     }
 
     @Test

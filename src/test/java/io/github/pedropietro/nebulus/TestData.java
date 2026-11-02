@@ -35,6 +35,16 @@ final class TestData {
         }
     }
 
+    /** An ipfs/ entry is a symbolic link, or a plain copy when the instance copies files. */
+    static void assertStoredEntry(Nebulus nebulus, Path entry) {
+        if (nebulus.usesSymbolicLinks()) {
+            org.junit.Assert.assertTrue(entry + " should be a symbolic link", Files.isSymbolicLink(entry));
+        } else {
+            org.junit.Assert.assertTrue(entry + " should be a copied file",
+                    Files.isRegularFile(entry, java.nio.file.LinkOption.NOFOLLOW_LINKS));
+        }
+    }
+
     static void deleteRecursively(Path root) {
         if (!Files.exists(root)) {
             return;

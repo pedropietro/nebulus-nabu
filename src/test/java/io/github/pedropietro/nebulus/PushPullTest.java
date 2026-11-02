@@ -3,6 +3,8 @@ package io.github.pedropietro.nebulus;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +30,16 @@ import static org.junit.Assert.fail;
  * Push/pull and the event API, against an in-memory network and a fake gateway, so the logic
  * is tested without the public IPFS network. Port of the "ipfs" tests of Nebulus.
  */
+@RunWith(Parameterized.class)
 public class PushPullTest {
+
+    @Parameterized.Parameters(name = "symbolicLinks={0}")
+    public static List<Object[]> modes() {
+        return List.of(new Object[]{true}, new Object[]{false});
+    }
+
+    @Parameterized.Parameter
+    public boolean symbolicLinks;
 
     private InMemoryNetwork network;
     private Path storeA;
@@ -48,6 +59,7 @@ public class PushPullTest {
     private NebulusOptions.Builder options(Path store) throws IOException {
         return NebulusOptions.builder()
                 .path(store)
+                .symbolicLinks(symbolicLinks)
                 .network(network.factory())
                 .gateway(network.gateway())
                 .gatewayPollInterval(Duration.ofMillis(50))
@@ -121,7 +133,7 @@ public class PushPullTest {
         bob.pull(cid).get(10, TimeUnit.SECONDS);
         assertEquals(cid, pulled.get(1, TimeUnit.SECONDS));
         assertArrayEquals(content, bob.get(cid));
-        assertTrue(Files.isSymbolicLink(storeB.resolve("ipfs").resolve(cid)));
+        TestData.assertStoredEntry(bob, storeB.resolve("ipfs").resolve(cid));
     }
 
     @Test

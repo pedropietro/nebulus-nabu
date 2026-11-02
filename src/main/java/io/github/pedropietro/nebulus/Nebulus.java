@@ -84,7 +84,7 @@ public class Nebulus implements AutoCloseable {
     public Nebulus(NebulusOptions options) {
         this.options = Objects.requireNonNull(options, "options");
         try {
-            this.storage = new Storage(options.path());
+            this.storage = new Storage(options.path(), options.symbolicLinks());
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot create Nebulus storage at " + options.path(), e);
         }
@@ -105,6 +105,14 @@ public class Nebulus implements AutoCloseable {
         return storage.root();
     }
 
+    /**
+     * True while {@code ipfs/} entries are symbolic links; false when files are copied, either
+     * because {@link NebulusOptions#symbolicLinks()} is off or the file system refused a link.
+     */
+    public boolean usesSymbolicLinks() {
+        return storage.usesSymbolicLinks();
+    }
+
     // ------------------------------------------------------------------ writing
 
     /** Adds a buffer: it is stored as {@code src/<sha256>} and linked as {@code ipfs/<cid>}. */
@@ -114,7 +122,7 @@ public class Nebulus implements AutoCloseable {
 
     /**
      * Adds a local file without copying it: {@code ipfs/<cid>} becomes a symbolic link to it,
-     * so the file must stay where it is.
+     * so the file must stay where it is (unless links are off, see {@link #usesSymbolicLinks()}).
      */
     public String add(Path file) throws IOException {
         if (!Files.isRegularFile(file)) {

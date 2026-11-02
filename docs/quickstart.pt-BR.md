@@ -267,7 +267,14 @@ de NAT. Confira se o CID está acessível por algum gateway, ou faça bootstrap 
 o conteúdo, como no passo 3.
 
 **Windows.** Criar links simbólicos exige o modo de desenvolvedor ou direitos de administrador.
-Sem isso, o Nebulus copia os arquivos para `ipfs/` e registra um aviso.
+Sem isso, o Nebulus copia os arquivos para `ipfs/` e registra um aviso uma única vez. Para usar
+sempre cópias, defina `.symbolicLinks(false)`. Quando os seus arquivos e a pasta do Nebulus estão
+em unidades diferentes (`D:` e `C:`), os links são absolutos.
+
+**Testes falham no Windows com outro CID de pasta** (`expected:<bafybeicaivk…>`). Os fixtures de
+teste foram baixados com quebras de linha CRLF. O `.gitattributes` do repositório evita isso. Num
+clone feito antes desse arquivo existir, restaure os fixtures com
+`git rm -r --cached src/test/resources/fixture` seguido de `git checkout HEAD -- src/test/resources/fixture`.
 
 **JitPack: `Could not resolve com.github.pedropietro:nebulus-nabu`.** O JitPack compila versões
 novas sob demanda. Espere alguns minutos e tente de novo, ou veja o log do build em

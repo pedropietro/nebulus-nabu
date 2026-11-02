@@ -55,6 +55,40 @@ jobs:
           path: target/surefire-reports
           if-no-files-found: ignore
 
+  # Windows: CRLF checkouts (core.autocrlf), workspace on D: with the temp folder on C:.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Checkout Nabu
+        uses: actions/checkout@v4
+        with:
+          repository: pedropietro/nabu
+          ref: 565204cd36cbb40966ba06b7aab657bd431c0b8f
+          path: nabu
+
+      - name: Install Nabu into the local Maven repository
+        run: mvn -B -q -f nabu/pom.xml install -DskipTests
+
+      - name: Build and test nebulus-nabu
+        run: mvn -B -Pnabu-local verify
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-windows
+          path: target/surefire-reports
+          if-no-files-found: ignore
+
   # The install path users follow: everything from JitPack, including this commit of nebulus-nabu.
   jitpack:
     runs-on: ubuntu-latest

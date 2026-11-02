@@ -267,7 +267,14 @@ that the CID is reachable through a gateway, or bootstrap directly to the node t
 in step 3.
 
 **Windows.** Creating symbolic links needs developer mode or administrator rights. Without
-them, Nebulus copies files into `ipfs/` instead and logs a warning.
+them, Nebulus copies files into `ipfs/` instead and logs a warning once. To always use copies,
+set `.symbolicLinks(false)`. When your files and the Nebulus folder are on different drives
+(`D:` and `C:`), the links are absolute.
+
+**Tests fail with a different folder CID on Windows** (`expected:<bafybeicaivk…>`). The test
+fixtures were checked out with CRLF line endings. The repository's `.gitattributes` prevents
+this. In a clone made before that file existed, restore the fixtures with
+`git rm -r --cached src/test/resources/fixture` followed by `git checkout HEAD -- src/test/resources/fixture`.
 
 **JitPack: `Could not resolve com.github.pedropietro:nebulus-nabu`.** JitPack builds new
 versions on demand. Wait a few minutes and try again, or check the build log on

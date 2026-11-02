@@ -32,6 +32,7 @@ public final class NebulusOptions {
 
     private final Path path;
     private final Long maxMegabytes;
+    private final boolean symbolicLinks;
     private final List<String> swarmAddresses;
     private final List<String> bootstrapAddresses;
     private final URI gateway;
@@ -45,6 +46,7 @@ public final class NebulusOptions {
     private NebulusOptions(Builder b) {
         this.path = b.path;
         this.maxMegabytes = b.maxMegabytes;
+        this.symbolicLinks = b.symbolicLinks;
         this.swarmAddresses = b.swarmAddresses;
         this.bootstrapAddresses = b.bootstrapAddresses;
         this.gateway = b.gateway;
@@ -72,6 +74,15 @@ public final class NebulusOptions {
     /** Maximum size accepted by {@code download}, in MB (10^6 bytes); empty means unlimited. */
     public Optional<Long> maxMegabytes() {
         return Optional.ofNullable(maxMegabytes);
+    }
+
+    /**
+     * When true (default), {@code ipfs/<cid>} entries are symbolic links to the content; when
+     * false, or where the file system refuses links (Windows without developer mode), they are
+     * copies, which makes the storage folder self-contained.
+     */
+    public boolean symbolicLinks() {
+        return symbolicLinks;
     }
 
     /** libp2p listen addresses for the IPFS node. */
@@ -120,6 +131,7 @@ public final class NebulusOptions {
         Builder b = new Builder();
         b.path = path;
         b.maxMegabytes = maxMegabytes;
+        b.symbolicLinks = symbolicLinks;
         b.swarmAddresses = swarmAddresses;
         b.bootstrapAddresses = bootstrapAddresses;
         b.gateway = gateway;
@@ -135,6 +147,7 @@ public final class NebulusOptions {
     public static final class Builder {
         private Path path = DEFAULT_PATH;
         private Long maxMegabytes;
+        private boolean symbolicLinks = true;
         private List<String> swarmAddresses = DEFAULT_SWARM;
         private List<String> bootstrapAddresses;
         private URI gateway = DEFAULT_GATEWAY;
@@ -162,6 +175,11 @@ public final class NebulusOptions {
                 throw new IllegalArgumentException("max must be positive");
             }
             this.maxMegabytes = max;
+            return this;
+        }
+
+        public Builder symbolicLinks(boolean useSymbolicLinks) {
+            this.symbolicLinks = useSymbolicLinks;
             return this;
         }
 

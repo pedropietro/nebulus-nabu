@@ -1,0 +1,9 @@
+# Test fixtures are hashed byte for byte: Git must never convert their line endings,
+# or CIDs change on Windows checkouts (core.autocrlf=true).
+src/test/resources/fixture/** -text
+
+# Keep sources and docs with LF in the repository.
+*.java text eol=lf
+*.md   text eol=lf
+*.xml  text eol=lf
+*.yml  text eol=lf

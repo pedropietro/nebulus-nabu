@@ -13,6 +13,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 /**
@@ -32,13 +33,25 @@ final class Storage {
     private final Path root;
     private final Path src;
     private final Path ipfs;
+    /** Cleared when links are disabled or the file system refuses them; then files are copied. */
+    private final AtomicBoolean symlinks;
 
     Storage(Path root) throws IOException {
+        this(root, true);
+    }
+
+    Storage(Path root, boolean useSymbolicLinks) throws IOException {
         this.root = root;
         this.src = root.resolve("src");
         this.ipfs = root.resolve("ipfs");
+        this.symlinks = new AtomicBoolean(useSymbolicLinks);
         Files.createDirectories(src);
         Files.createDirectories(ipfs);
+    }
+
+    /** False once Nebulus copies files into {@code ipfs/} instead of linking them. */
+    boolean usesSymbolicLinks() {
+        return symlinks.get();
     }
 
     Path root() {
@@ -132,9 +145,10 @@ final class Storage {
     }
 
     /**
-     * Creates {@code linkPath} as a relative symbolic link to {@code target}. An existing,
-     * working link is left alone (CIDs are immutable). Where symbolic links are not available
-     * (e.g. Windows without developer mode) the file is copied instead.
+     * Creates {@code linkPath} as a symbolic link to {@code target}: relative when both are on
+     * the same file system root, absolute otherwise (e.g. {@code D:} and {@code C:} on Windows).
+     * An existing, working link is left alone (CIDs are immutable). Where symbolic links are
+     * disabled or not available (Windows without developer mode), the file is copied instead.
      */
     void link(Path linkPath, Path target) throws IOException {
         if (Files.exists(linkPath)) {
@@ -144,16 +158,46 @@ final class Storage {
             Files.delete(linkPath); // dangling link: its target was removed
         }
         Files.createDirectories(linkPath.getParent());
-        Path relative = linkPath.getParent().toAbsolutePath().normalize()
-                .relativize(target.toAbsolutePath().normalize());
-        LOG.fine(() -> "create symlink " + linkPath + " -> " + relative);
+        if (symlinks.get()) {
+            Path linkTarget = linkTarget(linkPath.getParent(), target);
+            LOG.fine(() -> "create symlink " + linkPath + " -> " + linkTarget);
+            try {
+                Files.createSymbolicLink(linkPath, linkTarget);
+                return;
+            } catch (FileAlreadyExistsException e) {
+                return; // created concurrently: same CID, same content
+            } catch (UnsupportedOperationException | FileSystemException e) {
+                if (symlinks.getAndSet(false)) {
+                    LOG.warning("Symbolic links unavailable (" + e.getMessage()
+                            + "); Nebulus will copy files into " + ipfs + " instead");
+                }
+            }
+        }
+        copy(target, linkPath);
+    }
+
+    private static Path linkTarget(Path linkDir, Path target) {
+        Path from = linkDir.toAbsolutePath().normalize();
+        Path to = target.toAbsolutePath().normalize();
+        if (from.getRoot() == null || !from.getRoot().equals(to.getRoot())) {
+            return to; // different drives: a relative path cannot express this link
+        }
         try {
-            Files.createSymbolicLink(linkPath, relative);
+            return from.relativize(to);
+        } catch (IllegalArgumentException e) {
+            return to;
+        }
+    }
+
+    private static void copy(Path target, Path linkPath) throws IOException {
+        Path tmp = linkPath.resolveSibling(linkPath.getFileName() + "." + UUID.randomUUID() + ".tmp");
+        try {
+            Files.copy(target, tmp);
+            Files.move(tmp, linkPath);
         } catch (FileAlreadyExistsException e) {
-            // created concurrently: same CID, same content
-        } catch (UnsupportedOperationException | FileSystemException e) {
-            LOG.warning("Symbolic links unavailable (" + e.getMessage() + "), copying " + target);
-            Files.copy(target, linkPath, StandardCopyOption.REPLACE_EXISTING);
+            // copied concurrently: same CID, same content
+        } finally {
+            Files.deleteIfExists(tmp);
         }
     }
 

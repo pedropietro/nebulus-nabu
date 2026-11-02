@@ -191,6 +191,7 @@ new Nebulus(NebulusOptions.builder()
 |---|---|---|
 | `path` | `.nebulus` | Pasta de armazenamento. |
 | `maxMegabytes` | sem limite | Limite de tamanho dos downloads, em MB (10⁶ bytes). |
+| `symbolicLinks` | `true` | As entradas em `ipfs/` são links simbólicos. Com `false` são cópias, o que deixa a pasta autocontida. O Nebulus também passa a copiar quando o sistema operacional recusa links. Consulte `usesSymbolicLinks()`. |
 | `swarmAddresses` | `/ip4/0.0.0.0/tcp/4002` | Endereços libp2p em que o nó escuta. Use uma porta diferente para cada nó na mesma máquina. |
 | `bootstrapAddresses` | lista pública de bootstrap da libp2p | Peers iniciais. Passe uma lista vazia para uma rede privada. |
 | `gateway` | `https://ipfs.io` | Gateway consultado pelo `push`. |

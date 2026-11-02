@@ -192,6 +192,7 @@ new Nebulus(NebulusOptions.builder()
 |---|---|---|
 | `path` | `.nebulus` | Storage folder. |
 | `maxMegabytes` | unlimited | Size limit for downloads, in MB (10⁶ bytes). |
+| `symbolicLinks` | `true` | `ipfs/` entries are symbolic links. With `false` they are copies, which makes the folder self-contained. Nebulus also switches to copies when the OS refuses links. Check `usesSymbolicLinks()`. |
 | `swarmAddresses` | `/ip4/0.0.0.0/tcp/4002` | libp2p listen addresses. Use a different port for each node on the same machine. |
 | `bootstrapAddresses` | public libp2p bootstrap list | Initial peers. Pass an empty list for a private network. |
 | `gateway` | `https://ipfs.io` | Gateway polled by `push`. |
