@@ -147,6 +147,23 @@ public class NebulusTest {
     }
 
     @Test
+    public void storedEntriesStayDeletableForReadOnlySources() throws IOException {
+        Path file = store.resolve("readonly.bin");
+        Files.writeString(file, "like a Git pack file");
+        assertTrue(file.toFile().setReadOnly());
+        try {
+            String cid = nebulus.add(file);
+            Path entry = store.resolve("ipfs").resolve(cid);
+            if (!nebulus.usesSymbolicLinks()) {
+                assertTrue("copies made by Nebulus must be writable", Files.isWritable(entry));
+            }
+            Files.delete(entry); // a link, or Nebulus' own writable copy
+        } finally {
+            file.toFile().setWritable(true);
+        }
+    }
+
+    @Test
     public void downloadsWebFiles() throws IOException {
         assertEquals(TestData.HELLO_WORLD, nebulus.download(base + "/hello"));
         assertEquals(TestData.HELLO_WORLD, nebulus.add(base + "/hello"));

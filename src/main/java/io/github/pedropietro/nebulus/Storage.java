@@ -8,10 +8,14 @@ import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
@@ -193,11 +197,30 @@ final class Storage {
         Path tmp = linkPath.resolveSibling(linkPath.getFileName() + "." + UUID.randomUUID() + ".tmp");
         try {
             Files.copy(target, tmp);
+            makeWritable(tmp);
             Files.move(tmp, linkPath);
         } catch (FileAlreadyExistsException e) {
             // copied concurrently: same CID, same content
         } finally {
             Files.deleteIfExists(tmp);
+        }
+    }
+
+    /**
+     * Copies belong to Nebulus, so they must stay manageable: Windows copies keep the source's
+     * read-only attribute (Git object files have it), which would block deleting the store.
+     */
+    private static void makeWritable(Path file) throws IOException {
+        DosFileAttributeView dos = Files.getFileAttributeView(file, DosFileAttributeView.class);
+        if (dos != null && dos.readAttributes().isReadOnly()) {
+            dos.setReadOnly(false);
+        }
+        PosixFileAttributeView posix = Files.getFileAttributeView(file, PosixFileAttributeView.class);
+        if (posix != null) {
+            Set<PosixFilePermission> perms = posix.readAttributes().permissions();
+            if (perms.add(PosixFilePermission.OWNER_WRITE)) {
+                posix.setPermissions(perms);
+            }
         }
     }
 

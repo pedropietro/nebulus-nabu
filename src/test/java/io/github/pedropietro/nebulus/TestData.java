@@ -52,6 +52,12 @@ final class TestData {
         try (Stream<Path> walk = Files.walk(root)) {
             walk.sorted(Comparator.reverseOrder()).forEach(p -> {
                 try {
+                    // Windows refuses to delete read-only files (e.g. links into Git objects)
+                    java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(p,
+                            java.nio.file.attribute.DosFileAttributeView.class, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+                    if (dos != null && !Files.isSymbolicLink(p)) {
+                        dos.setReadOnly(false);
+                    }
                     Files.delete(p);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
