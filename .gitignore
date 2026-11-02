@@ -35,3 +35,5 @@ target/
 # Nebulus storage created by demos and local runs
 .nebulus/
 storage/
+quickstart-*/
+*.out

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      The Quick Start project: a standalone app using nebulus-nabu as a dependency.
+      By default everything comes from JitPack. In your own project, a single dependency on
+      com.github.pedropietro:nebulus-nabu is enough; the extra properties here only exist so
+      CI can also run the examples against locally built artifacts (-Plocal).
+    -->
+    <groupId>example</groupId>
+    <artifactId>nebulus-quickstart</artifactId>
+    <version>1.0</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <nebulus.groupId>com.github.pedropietro</nebulus.groupId>
+        <nebulus.version>main-SNAPSHOT</nebulus.version>
+        <nabu.groupId>com.github.pedropietro</nabu.groupId>
+        <nabu.version>565204cd36</nabu.version>
+        <exec.mainClass>quickstart.QuickStart</exec.mainClass>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>${nebulus.groupId}</groupId>
+            <artifactId>nebulus-nabu</artifactId>
+            <version>${nebulus.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.pedropietro</groupId>
+                    <artifactId>nabu</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>${nabu.groupId}</groupId>
+            <artifactId>nabu</artifactId>
+            <version>${nabu.version}</version>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <!-- nebulus-nabu and Nabu installed with "mvn install" (see docs/quickstart.md, "From source") -->
+        <profile>
+            <id>local</id>
+            <properties>
+                <nebulus.groupId>io.github.pedropietro</nebulus.groupId>
+                <nebulus.version>0.1.0-SNAPSHOT</nebulus.version>
+                <nabu.groupId>com.github.peergos</nabu.groupId>
+                <nabu.version>v0.9.1</nabu.version>
+            </properties>
+        </profile>
+    </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>${exec.mainClass}</mainClass>
+                    <cleanupDaemonThreads>false</cleanupDaemonThreads>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

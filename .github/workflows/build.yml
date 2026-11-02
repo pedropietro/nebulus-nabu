@@ -29,8 +29,23 @@ jobs:
       - name: Install Nabu into the local Maven repository
         run: mvn -B -q -f nabu/pom.xml install -DskipTests
 
-      - name: Build and test nebulus-nabu
-        run: mvn -B -Pnabu-local verify
+      - name: Build, test and install nebulus-nabu
+        run: mvn -B -Pnabu-local install
+
+      # The Quick Start (docs/quickstart.md) must keep working exactly as documented.
+      - name: "Quick Start: offline CIDs"
+        working-directory: examples/quickstart
+        run: |
+          mvn -B -q -Plocal compile exec:java -Dexec.mainClass=quickstart.QuickStart | tee quickstart.out
+          grep -q "folder       -> bafybeif4ubfbkzlur7gc2xn4gazuyugmxozdftyne3xalzqku6olwgpwdi \[hello.txt, note.txt\]" quickstart.out
+          grep -q "note.txt says: Nebulus keeps this private" quickstart.out
+
+      - name: "Quick Start: two local nodes"
+        working-directory: examples/quickstart
+        timeout-minutes: 5
+        run: |
+          mvn -B -q -Plocal compile exec:java -Dexec.mainClass=quickstart.LocalNetwork | tee local.out
+          grep -q "Bob reads:   a private hello from Alice" local.out
 
       - name: Upload test reports
         if: always()
@@ -40,10 +55,10 @@ jobs:
           path: target/surefire-reports
           if-no-files-found: ignore
 
-  # Checks the default build, which resolves Nabu through JitPack (com.github.pedropietro:nabu).
+  # The install path users follow: everything from JitPack, including this commit of nebulus-nabu.
   jitpack:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -54,3 +69,16 @@ jobs:
           cache: maven
       - name: Compile against Nabu from JitPack
         run: mvn -B test-compile
+      - name: "Quick Start from JitPack (JitPack builds new commits on demand, so retry)"
+        working-directory: examples/quickstart
+        run: |
+          version="${GITHUB_SHA::10}"
+          for attempt in 1 2 3 4 5; do
+            if mvn -B -q -U compile exec:java -Dnebulus.version="$version" -Dexec.mainClass=quickstart.QuickStart | tee quickstart.out \
+               && grep -q "note.txt says: Nebulus keeps this private" quickstart.out; then
+              exit 0
+            fi
+            echo "attempt $attempt failed; waiting for JitPack"
+            sleep 120
+          done
+          exit 1
