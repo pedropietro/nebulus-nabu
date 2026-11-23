@@ -11,6 +11,36 @@
     <description>Virtual IPFS: a Java port of Nebulus on top of the Nabu IPFS implementation</description>
     <url>https://github.com/pedropietro/nebulus-nabu</url>
 
+    <!-- Metadata required by Maven Central -->
+    <licenses>
+        <license>
+            <name>BSD-3-Clause</name>
+            <url>https://opensource.org/licenses/BSD-3-Clause</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>pedropietro</id>
+            <name>Pedro Pietroluongo</name>
+            <email>contato@pedropietro.dev</email>
+            <url>https://github.com/pedropietro</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/pedropietro/nebulus-nabu.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/pedropietro/nebulus-nabu.git</developerConnection>
+        <url>https://github.com/pedropietro/nebulus-nabu</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/pedropietro/nebulus-nabu/issues</url>
+    </issueManagement>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
@@ -58,6 +88,69 @@
                 <nabu.groupId>com.github.peergos</nabu.groupId>
                 <nabu.version>v0.9.1</nabu.version>
             </properties>
+        </profile>
+
+        <!--
+          Publishing to Maven Central (Central Portal). Kept in a profile so regular builds,
+          CI and JitPack do not need a GPG key or the Central token.
+
+            mvn -Prelease clean deploy
+
+          Requires a server "central" with the Portal user token in ~/.m2/settings.xml and the
+          GPG passphrase from gpg-agent or the MAVEN_GPG_PASSPHRASE environment variable.
+        -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <configuration>
+                            <doclint>all,-missing</doclint>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
+                        <configuration>
+                            <!-- Passphrase only from gpg-agent or MAVEN_GPG_PASSPHRASE, never from the POM or settings.xml -->
+                            <bestPractices>true</bestPractices>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.12.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <!-- Upload and validate; the release is confirmed manually in the Portal -->
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 
